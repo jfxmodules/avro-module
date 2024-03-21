@@ -33,12 +33,12 @@
         <maven.compiler.source>21</maven.compiler.source>
         <maven.compiler.target>21</maven.compiler.target>
     </properties>
-  
+    
     <distributionManagement>
         <repository>
             <id>github</id>
             <name>GitHub jfxmodules Apache Maven Packages</name>
-            <url>https://maven.pkg.github.com/jfxmodules/avro</url>
+            <url>https://maven.pkg.github.com/jfxmodules/avro-module</url>
         </repository>
     </distributionManagement>
 
