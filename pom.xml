@@ -26,7 +26,7 @@
     <packaging>jar</packaging> 
 
     <name>avro-module</name>
-    <url>https://maven.pkg.github.com/jfxmodules/avro</url>
+    <url>https://github.com/jfxmodules/avro-module.git</url>
     <description>Avro core components</description>
 
     <properties>
