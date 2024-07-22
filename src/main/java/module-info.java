@@ -40,4 +40,5 @@ module org.jfxmodules.avro {
     exports org.apache.avro.util;
     exports org.apache.avro.util.internal;
     exports org.apache.avro.util.springframework;
+    uses org.apache.avro.LogicalTypes.LogicalTypeFactory;
 }
