@@ -18,15 +18,24 @@
 
 package org.apache.avro;
 
-import java.math.RoundingMode;
 import org.apache.avro.generic.GenericData;
 import org.apache.avro.generic.GenericEnumSymbol;
 import org.apache.avro.generic.GenericFixed;
 import org.apache.avro.generic.IndexedRecord;
+import org.apache.avro.io.BinaryDecoder;
+import org.apache.avro.io.BinaryEncoder;
+import org.apache.avro.io.DecoderFactory;
+import org.apache.avro.io.EncoderFactory;
+import org.apache.avro.util.TimePeriod;
 
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.BigInteger;
+import java.math.RoundingMode;
 import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
+import java.nio.IntBuffer;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Map;
@@ -58,6 +67,22 @@ public class Conversions {
     @Override
     public CharSequence toCharSequence(UUID value, Schema schema, LogicalType type) {
       return value.toString();
+    }
+
+    @Override
+    public UUID fromFixed(final GenericFixed value, final Schema schema, final LogicalType type) {
+      ByteBuffer buffer = ByteBuffer.wrap(value.bytes());
+      long mostSigBits = buffer.getLong();
+      long leastSigBits = buffer.getLong();
+      return new UUID(mostSigBits, leastSigBits);
+    }
+
+    @Override
+    public GenericFixed toFixed(final UUID value, final Schema schema, final LogicalType type) {
+      ByteBuffer buffer = ByteBuffer.allocate(2 * Long.BYTES);
+      buffer.putLong(value.getMostSignificantBits());
+      buffer.putLong(value.getLeastSignificantBits());
+      return new GenericData.Fixed(schema, buffer.array());
     }
   }
 
@@ -144,6 +169,102 @@ public class Conversions {
       }
 
       return value;
+    }
+  }
+
+  public static class BigDecimalConversion extends Conversion<BigDecimal> {
+
+    @Override
+    public Class<BigDecimal> getConvertedType() {
+      return BigDecimal.class;
+    }
+
+    @Override
+    public String getLogicalTypeName() {
+      return "big-decimal";
+    }
+
+    @Override
+    public BigDecimal fromBytes(final ByteBuffer value, final Schema schema, final LogicalType type) {
+      BinaryDecoder decoder = DecoderFactory.get().binaryDecoder(value.array(), null);
+
+      try {
+        BigInteger bg = null;
+        ByteBuffer buffer = decoder.readBytes(null);
+        byte[] array = buffer.array();
+        if (array != null && array.length > 0) {
+          bg = new BigInteger(array);
+        }
+
+        int scale = decoder.readInt();
+        return new BigDecimal(bg, scale);
+      } catch (IOException e) {
+        throw new RuntimeException(e);
+      }
+    }
+
+    @Override
+    public ByteBuffer toBytes(final BigDecimal value, final Schema schema, final LogicalType type) {
+      try {
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        BinaryEncoder encoder = EncoderFactory.get().binaryEncoder(out, null);
+
+        BigInteger unscaledValue = value.unscaledValue();
+        if (unscaledValue != null) {
+          encoder.writeBytes(unscaledValue.toByteArray());
+        } else {
+          encoder.writeBytes(new byte[] {});
+        }
+        encoder.writeInt(value.scale());
+        encoder.flush();
+        return ByteBuffer.wrap(out.toByteArray());
+
+      } catch (IOException e) {
+        throw new RuntimeException(e);
+      }
+
+    }
+
+    @Override
+    public Schema getRecommendedSchema() {
+      return LogicalTypes.bigDecimal().addToSchema(Schema.create(Schema.Type.BYTES));
+    }
+  }
+
+  public static class DurationConversion extends Conversion<TimePeriod> {
+    @Override
+    public Class<TimePeriod> getConvertedType() {
+      return TimePeriod.class;
+    }
+
+    @Override
+    public String getLogicalTypeName() {
+      return "duration";
+    }
+
+    @Override
+    public Schema getRecommendedSchema() {
+      return LogicalTypes.duration().addToSchema(Schema.createFixed("time.Duration",
+          "A 12-byte byte array encoding a duration in months, days and milliseconds.", null, 12));
+    }
+
+    @Override
+    public TimePeriod fromFixed(GenericFixed value, Schema schema, LogicalType type) {
+      IntBuffer buffer = ByteBuffer.wrap(value.bytes()).order(ByteOrder.LITTLE_ENDIAN).asIntBuffer();
+      long months = Integer.toUnsignedLong(buffer.get());
+      long days = Integer.toUnsignedLong(buffer.get());
+      long millis = Integer.toUnsignedLong(buffer.get());
+      return TimePeriod.of(months, days, millis);
+    }
+
+    @Override
+    public GenericFixed toFixed(TimePeriod value, Schema schema, LogicalType type) {
+      ByteBuffer buffer = ByteBuffer.allocate(12).order(ByteOrder.LITTLE_ENDIAN);
+      IntBuffer intBuffer = buffer.asIntBuffer();
+      intBuffer.put((int) value.getMonths());
+      intBuffer.put((int) value.getDays());
+      intBuffer.put((int) value.getMillis());
+      return new GenericData.Fixed(schema, buffer.array());
     }
   }
 

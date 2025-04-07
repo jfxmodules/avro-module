@@ -21,6 +21,7 @@ module org.jfxmodules.avro {
     requires jdk.management;
     
     requires org.apache.commons.compress;
+    requires org.apache.commons.io;
     requires org.slf4j;
     requires com.fasterxml.jackson.databind;
     requires com.fasterxml.jackson.annotation;

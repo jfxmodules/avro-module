@@ -20,8 +20,10 @@ package org.apache.avro.io;
 import org.apache.avro.AvroRuntimeException;
 import org.apache.avro.Schema;
 import org.apache.avro.SystemLimitException;
+import org.apache.avro.generic.GenericData;
 import org.apache.avro.generic.GenericDatumReader;
 import org.apache.avro.generic.GenericDatumWriter;
+import org.apache.avro.generic.GenericRecord;
 import org.apache.avro.util.ByteBufferInputStream;
 import org.apache.avro.util.ByteBufferOutputStream;
 import org.apache.avro.util.RandomData;
@@ -43,6 +45,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 
 import static org.apache.avro.TestSystemLimitException.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class TestBinaryDecoder {
   // prime number buffer size so that looping tests hit the buffer edge
@@ -658,6 +661,7 @@ public class TestBinaryDecoder {
       // booleans are one byte, array trailer is one byte
       bd.skipFixed((int) leftover + 1);
       bd.skipFixed(0);
+      bd.skipFixed(-8); // Should be a no-op; see AVRO-3635
       bd.readLong();
     }
     EOFException eof = null;
@@ -680,6 +684,28 @@ public class TestBinaryDecoder {
     Decoder d = newDecoder(new ByteArrayInputStream(baos.toByteArray()), useDirect);
     Assertions.assertEquals(0x10000000000000L, d.readLong());
     Assertions.assertThrows(EOFException.class, () -> d.readInt());
+  }
+
+  @Test
+  void testFloatPrecision() throws Exception {
+    String def = "{\"type\":\"record\",\"name\":\"X\",\"fields\":" + "[{\"type\":\"float\",\"name\":\"n\"}]}";
+    Schema schema = new Schema.Parser().parse(def);
+    DatumReader<GenericRecord> reader = new GenericDatumReader<>(schema);
+
+    float value = 33.33000183105469f;
+
+    GenericData.Record record = new GenericData.Record(schema);
+    record.put(0, value);
+    ByteArrayOutputStream out = new ByteArrayOutputStream();
+    Encoder encoder = EncoderFactory.get().directBinaryEncoder(out, null);
+
+    DatumWriter<GenericRecord> writer = new GenericDatumWriter<>(schema);
+    writer.write(record, encoder);
+    encoder.flush();
+
+    Decoder decoder = DecoderFactory.get().directBinaryDecoder(new ByteArrayInputStream(out.toByteArray()), null);
+    GenericRecord r = reader.read(null, decoder);
+    assertEquals(value + 0d, ((float) r.get("n")) + 0d);
   }
 
 }

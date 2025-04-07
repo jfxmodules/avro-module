@@ -37,7 +37,7 @@ public class SnappyCodec extends Codec {
 
   static class Option extends CodecFactory {
     /*
-      static {
+    static {
       // if snappy isn't available, this will throw an exception which we
       // can catch so we can avoid registering this codec
       Snappy.getNativeLibraryVersion();
@@ -81,7 +81,7 @@ public class SnappyCodec extends Codec {
         var outputStream = new ByteArrayOutputStream();
         while (-1 != (i = decompressor.read())) {
             outputStream.write(i);
-        }
+  }
         outputStream.flush();
         bytes = outputStream.toByteArray();
     }
